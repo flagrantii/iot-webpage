@@ -210,15 +210,6 @@ export function RealtimeChart({ series, height = 300, threshold }: Props) {
 				</ResponsiveContainer>
 			</div>
 
-			{/* Alert indicators */}
-			{threshold && stats.latest > threshold && (
-				<div className="absolute top-4 right-4 flex items-center gap-2 bg-red-500/20 border border-red-500/40 rounded-lg px-3 py-2">
-					<div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-					<span className="text-red-400 text-xs font-medium uppercase tracking-wide">
-						Threshold Exceeded
-					</span>
-				</div>
-			)}
 		</div>
 	);
 }

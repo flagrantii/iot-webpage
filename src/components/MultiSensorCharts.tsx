@@ -51,7 +51,35 @@ export default function MultiSensorCharts({ sensorData }: Props) {
 					const isOnline = data.latest && data.lastUpdated && (Date.now() - data.lastUpdated < 30000);
 					
 					return (
-						<div key={sensorId} className="bg-black/30 border border-gray-700/50 rounded-lg overflow-hidden backdrop-blur-sm">
+						<div key={sensorId} className="relative bg-black/30 border border-gray-700/50 rounded-lg overflow-hidden backdrop-blur-sm">
+							{/* Alert Banner for Threshold Exceeded */}
+							{rule && data.latest && rule.enabled && (
+								(() => {
+									const currentValue = data.latest.value;
+									const threshold = rule.threshold;
+									const isExceeded = rule.op === 'gt' ? currentValue > threshold :
+													   rule.op === 'gte' ? currentValue >= threshold :
+													   rule.op === 'lt' ? currentValue < threshold :
+													   currentValue <= threshold;
+									
+									return isExceeded ? (
+										<div className="bg-red-500/20 border-b border-red-500/40 px-4 py-2">
+											<div className="flex items-center justify-between">
+												<div className="flex items-center gap-2">
+													<div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+													<span className="text-red-400 text-xs font-medium uppercase tracking-wide">
+														THRESHOLD EXCEEDED
+													</span>
+												</div>
+												<span className="text-red-300 text-xs font-mono">
+													{currentValue.toFixed(2)} {rule.op === 'gt' || rule.op === 'gte' ? '>' : '<'} {threshold}
+												</span>
+											</div>
+										</div>
+									) : null;
+								})()
+							)}
+
 							{/* Chart Header */}
 							<div className="p-4 border-b border-gray-700/50">
 								<div className="flex items-center justify-between">
@@ -128,10 +156,7 @@ export default function MultiSensorCharts({ sensorData }: Props) {
 								</div>
 							</div>
 
-							{/* Alert Indicator */}
-							{data.latest?.status === 'critical' && (
-								<div className="absolute top-2 right-2 w-3 h-3 bg-red-400 rounded-full animate-pulse"></div>
-							)}
+
 						</div>
 					);
 				})}
