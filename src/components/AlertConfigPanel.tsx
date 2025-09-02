@@ -25,7 +25,7 @@ const SECURITY_SENSORS = [
 	{ id: "/esp32/light", name: "Perimeter Lighting", icon: "🔆", zone: "Outer Perimeter", unit: "lux" },
 	{ id: "/esp32/smoke", name: "Smoke Detection", icon: "🔥", zone: "Cell Block A", unit: "ppm" },
 	{ id: "/esp32/sound", name: "Audio Monitoring", icon: "🔊", zone: "Common Area", unit: "dB" },
-	{ id: "/raspi/gyro", name: "Motion Detection", icon: "📳", zone: "Entry Point", unit: "deg/s" },
+	{ id: "/raspi/gyro", name: "Shaking Detection", icon: "📳", zone: "Entry Point", unit: "deg/s" },
 	{ id: "/raspi/flame", name: "Fire Detection", icon: "🚨", zone: "Kitchen Area", unit: "level" }
 ];
 

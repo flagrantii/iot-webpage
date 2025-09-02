@@ -5,7 +5,9 @@ import KpiCard from "@/components/KpiCard";
 import RealtimeChart from "@/components/RealtimeChart";
 import SensorTable from "@/components/SensorTable";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
+import MultiSensorCharts from "@/components/MultiSensorCharts";
 import { useLiveSeries, type TimeRange } from "@/hooks/useLiveSeries";
+import { useMultiSensorLive } from "@/hooks/useMultiSensorLive";
 import { useAlertsStore, evaluateAlert } from "@/store/alerts.store";
 
 // Security sensor mapping with proper naming for jail monitoring
@@ -13,7 +15,7 @@ const SECURITY_SENSORS = [
   { id: "/esp32/light", name: "Perimeter Lighting", icon: "🔆", zone: "Outer Perimeter" },
   { id: "/esp32/smoke", name: "Smoke Detection", icon: "🔥", zone: "Cell Block A" },
   { id: "/esp32/sound", name: "Audio Monitoring", icon: "🔊", zone: "Common Area" },
-  { id: "/raspi/gyro", name: "Motion Detection", icon: "📳", zone: "Entry Point" },
+  { id: "/raspi/gyro", name: "Shaking Detection", icon: "📳", zone: "Entry Point" },
   { id: "/raspi/flame", name: "Fire Detection", icon: "🚨", zone: "Kitchen Area" }
 ];
 
@@ -67,25 +69,60 @@ export default function Home() {
   const [selectedSensor, setSelectedSensor] = useState<string>(DEFAULT_SENSORS[0]);
   const [range, setRange] = useState<TimeRange>("15m");
   const { series, latest, lastUpdated } = useLiveSeries(selectedSensor, range);
+  const multiSensorData = useMultiSensorLive(DEFAULT_SENSORS, range);
   const { rules, addEvent } = useAlertsStore();
 
-  // Enhanced security evaluation
-  const activeRule = rules[selectedSensor];
-  const severity = useMemo(() => (activeRule ? evaluateAlert(series, activeRule) : null), [series, activeRule]);
-  const alertCount = severity ? 1 : 0;
-  const onlineCount = DEFAULT_SENSORS.length;
+  // Enhanced security evaluation for all sensors
+  const allSensorAlerts = useMemo(() => {
+    let totalAlerts = 0;
+    const activeAlerts: string[] = [];
+    
+    DEFAULT_SENSORS.forEach(sensorId => {
+      const rule = rules[sensorId];
+      const sensorData = multiSensorData[sensorId];
+      if (rule && sensorData?.series) {
+        const severity = evaluateAlert(sensorData.series, rule);
+        if (severity) {
+          totalAlerts++;
+          activeAlerts.push(sensorId);
+        }
+      }
+    });
+    
+    return { totalAlerts, activeAlerts };
+  }, [rules, multiSensorData]);
 
+  // Count online sensors
+  const onlineCount = useMemo(() => {
+    return DEFAULT_SENSORS.filter(sensorId => {
+      const sensorData = multiSensorData[sensorId];
+      return sensorData?.latest && sensorData.lastUpdated && (Date.now() - sensorData.lastUpdated < 30000); // 30 seconds threshold
+    }).length;
+  }, [multiSensorData]);
+
+  const alertCount = allSensorAlerts.totalAlerts;
+
+  // Add events for all sensors with alerts
+  const activeAlertsKey = allSensorAlerts.activeAlerts.join(',');
+  
   useEffect(() => {
-    if (severity && latest && activeRule) {
-      addEvent({
-        eventId: `${selectedSensor}-${latest.timestamp}`,
-        sensorId: selectedSensor,
-        value: latest.value,
-        triggeredAt: Date.now(),
-        severity,
-      });
-    }
-  }, [severity, latest, activeRule, selectedSensor, addEvent]);
+    allSensorAlerts.activeAlerts.forEach(sensorId => {
+      const rule = rules[sensorId];
+      const sensorData = multiSensorData[sensorId];
+      if (rule && sensorData?.latest && sensorData.series) {
+        const severity = evaluateAlert(sensorData.series, rule);
+        if (severity) {
+          addEvent({
+            eventId: `${sensorId}-${sensorData.latest.timestamp}`,
+            sensorId,
+            value: sensorData.latest.value,
+            triggeredAt: Date.now(),
+            severity,
+          });
+        }
+      }
+    });
+  }, [activeAlertsKey, allSensorAlerts.activeAlerts, rules, multiSensorData, addEvent]);
 
   // Enhanced KPIs for security monitoring
   const securityKpis: Array<{
@@ -225,6 +262,11 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Multi-Sensor Charts */}
+        <div className="mb-8">
+          <MultiSensorCharts sensorData={multiSensorData} />
+        </div>
+
         {/* Security Sensor Overview */}
         <div className="bg-black/30 border border-gray-700/50 rounded-lg overflow-hidden backdrop-blur-sm">
           <div className="p-4 border-b border-gray-700/50">
@@ -233,7 +275,12 @@ export default function Home() {
             </h2>
           </div>
           <div className="p-4">
-            <SensorTable rows={DEFAULT_SENSORS.map((id) => ({ sensorId: id, latest: id === selectedSensor ? latest : null }))} />
+            <SensorTable rows={DEFAULT_SENSORS.map((id) => ({ 
+              sensorId: id, 
+              latest: multiSensorData[id]?.latest || null,
+              series: multiSensorData[id]?.series || [],
+              lastUpdated: multiSensorData[id]?.lastUpdated || null
+            }))} />
           </div>
         </div>
       </div>

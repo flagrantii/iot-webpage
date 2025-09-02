@@ -5,6 +5,8 @@ import type { SensorPoint } from "@/types/sensor";
 type Row = {
 	sensorId: string;
 	latest?: SensorPoint | null;
+	series?: SensorPoint[];
+	lastUpdated?: number | null;
 };
 
 type Props = {
@@ -16,7 +18,7 @@ const SECURITY_SENSORS = [
 	{ id: "/esp32/light", name: "Perimeter Lighting", icon: "🔆", zone: "Outer Perimeter", type: "Environmental" },
 	{ id: "/esp32/smoke", name: "Smoke Detection", icon: "🔥", zone: "Cell Block A", type: "Fire Safety" },
 	{ id: "/esp32/sound", name: "Audio Monitoring", icon: "🔊", zone: "Common Area", type: "Audio Surveillance" },
-	{ id: "/raspi/gyro", name: "Motion Detection", icon: "📳", zone: "Entry Point", type: "Motion Sensor" },
+	{ id: "/raspi/gyro", name: "Shaking Detection", icon: "📳", zone: "Entry Point", type: "Shaking Sensor" },
 	{ id: "/raspi/flame", name: "Fire Detection", icon: "🚨", zone: "Kitchen Area", type: "Fire Safety" }
 ];
 
@@ -61,7 +63,7 @@ function SecurityPriorityBadge({ type }: { type: string }) {
 	const typeConfig: Record<string, { color: string; priority: string }> = {
 		"Fire Safety": { color: "bg-red-500/20 text-red-300 border-red-500/30", priority: "HIGH" },
 		"Audio Surveillance": { color: "bg-purple-500/20 text-purple-300 border-purple-500/30", priority: "MED" },
-		"Motion Sensor": { color: "bg-blue-500/20 text-blue-300 border-blue-500/30", priority: "HIGH" },
+		"Shaking Sensor": { color: "bg-blue-500/20 text-blue-300 border-blue-500/30", priority: "HIGH" },
 		"Environmental": { color: "bg-green-500/20 text-green-300 border-green-500/30", priority: "LOW" },
 		"Generic": { color: "bg-gray-500/20 text-gray-300 border-gray-500/30", priority: "LOW" }
 	};
@@ -118,9 +120,10 @@ export default function SensorTable({ rows }: Props) {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 				{rows.map((row) => {
 					const sensorInfo = getSensorInfo(row.sensorId);
-					const isOnline = !!row.latest;
-					const lastUpdate = row.latest ? new Date(row.latest.timestamp) : null;
+					const isOnline = !!row.latest && !!row.lastUpdated && (Date.now() - row.lastUpdated < 30000);
+					const lastUpdate = row.lastUpdated ? new Date(row.lastUpdated) : (row.latest ? new Date(row.latest.timestamp) : null);
 					const timeSinceUpdate = lastUpdate ? Date.now() - lastUpdate.getTime() : null;
+					const dataPoints = row.series?.length || 0;
 					
 					return (
 						<div key={row.sensorId} className={`
@@ -157,6 +160,20 @@ export default function SensorTable({ rows }: Props) {
 										isOnline ? 'text-green-400' : 'text-gray-500'
 									}`}>
 										{row.latest ? row.latest.value.toFixed(2) : '--'}
+									</div>
+								</div>
+							</div>
+
+							{/* Data Statistics */}
+							<div className="grid grid-cols-2 gap-4 mb-3 text-xs">
+								<div>
+									<span className="text-gray-400">Data Points:</span>
+									<div className="text-green-400 font-mono font-bold">{dataPoints}</div>
+								</div>
+								<div>
+									<span className="text-gray-400">Online:</span>
+									<div className={`font-medium ${isOnline ? 'text-green-400' : 'text-red-400'}`}>
+										{isOnline ? 'YES' : 'NO'}
 									</div>
 								</div>
 							</div>
