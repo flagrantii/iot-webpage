@@ -1,7 +1,6 @@
 "use client";
 
 import RealtimeChart from "./RealtimeChart";
-import BarChart from "./BarChart";
 import type { SensorPoint } from "@/types/sensor";
 import { useAlertsStore } from "@/store/alerts.store";
 
@@ -30,17 +29,6 @@ function getSensorInfo(sensorId: string) {
 	};
 }
 
-// Determine if sensor should use bar chart (for binary/discrete data)
-function shouldUseBarChart(sensorId: string): { useBar: boolean; type?: "audio" | "flame" | "binary" } {
-	if (sensorId === "/esp32/sound") {
-		return { useBar: true, type: "audio" };
-	}
-	if (sensorId === "/raspi/flame") {
-		return { useBar: true, type: "flame" };
-	}
-	return { useBar: false };
-}
-
 export default function MultiSensorCharts({ sensorData }: Props) {
 	const { rules } = useAlertsStore();
 
@@ -60,7 +48,6 @@ export default function MultiSensorCharts({ sensorData }: Props) {
 				{Object.entries(sensorData).map(([sensorId, data]) => {
 					const sensorInfo = getSensorInfo(sensorId);
 					const rule = rules[sensorId];
-					const chartConfig = shouldUseBarChart(sensorId);
 					const isOnline = data.latest && data.lastUpdated && (Date.now() - data.lastUpdated < 30000);
 					
 					return (
@@ -132,30 +119,18 @@ export default function MultiSensorCharts({ sensorData }: Props) {
 							{/* Chart */}
 							<div className="p-4">
 								{data.series.length > 0 ? (
-									chartConfig.useBar ? (
-										<BarChart 
-											series={data.series} 
-											height={200}
-											threshold={rule?.threshold}
-											sensorType={chartConfig.type}
-										/>
-									) : (
-										<RealtimeChart 
-											series={data.series} 
-											height={200}
-											threshold={rule?.threshold}
-										/>
-									)
+									<RealtimeChart 
+										series={data.series} 
+										height={200}
+										threshold={rule?.threshold}
+										sensorId={sensorId}
+									/>
 								) : (
 									<div className="h-[200px] flex items-center justify-center bg-gray-900/30 rounded-lg border border-gray-700/30">
 										<div className="text-center">
-											<div className="text-2xl mb-2">
-												{chartConfig.useBar ? "📊" : "📈"}
-											</div>
+											<div className="text-2xl mb-2">📊</div>
 											<div className="text-gray-400 text-sm">No data available</div>
-											<div className="text-gray-500 text-xs">
-												Waiting for {chartConfig.useBar ? "binary sensor" : "sensor"} readings...
-											</div>
+											<div className="text-gray-500 text-xs">Waiting for sensor readings...</div>
 										</div>
 									</div>
 								)}

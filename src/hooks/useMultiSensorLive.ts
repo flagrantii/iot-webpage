@@ -128,9 +128,9 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 		};
 	}, [sensorIdsKey, sensorIds]);
 
-	// Update loop to process buffered data
+	// Data refresh loop every 2 seconds to process buffered data
 	useEffect(() => {
-		const paint = () => {
+		const refreshMultiSensorData = () => {
 			const now = Date.now();
 			const rangeMs = RANGE_TO_MS[range];
 
@@ -170,10 +170,10 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 				return newData;
 			});
 
-			rafRef.current = window.setTimeout(paint, 250) as unknown as number;
+			rafRef.current = window.setTimeout(refreshMultiSensorData, 2000) as unknown as number;
 		};
 
-		rafRef.current = window.setTimeout(paint, 250) as unknown as number;
+		rafRef.current = window.setTimeout(refreshMultiSensorData, 2000) as unknown as number;
 
 		return () => {
 			if (rafRef.current) {

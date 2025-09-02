@@ -12,14 +12,29 @@ import {
 	ReferenceLine,
 } from "recharts";
 import type { SensorPoint } from "@/types/sensor";
+import BinaryBarChart from "./BinaryBarChart";
 
 type Props = {
 	series: SensorPoint[];
 	height?: number;
 	threshold?: number;
+	sensorId?: string;
 };
 
-export function RealtimeChart({ series, height = 300, threshold }: Props) {
+export function RealtimeChart({ series, height = 300, threshold, sensorId }: Props) {
+	// Check if this is a binary sensor (audio/sound or flame)
+	const isBinarySensor = useMemo(() => {
+		if (!sensorId) return false;
+		
+		// Check if sensor is flame or sound (audio) - these are binary sensors
+		const binarySensorTypes = ['/esp32/sound', '/raspi/flame'];
+		if (binarySensorTypes.includes(sensorId)) return true;
+		
+		// Also check if all values in the series are 0 or 1
+		const uniqueValues = [...new Set(series.map(p => p.value))];
+		return uniqueValues.every(val => val === 0 || val === 1) && uniqueValues.length <= 2;
+	}, [sensorId, series]);
+
 	const { data, stats } = useMemo(() => {
 		const chartData = series.map((p, index) => ({
 			t: new Date(p.timestamp).toLocaleTimeString([], { 
@@ -92,6 +107,12 @@ export function RealtimeChart({ series, height = 300, threshold }: Props) {
 	};
 
 	const colors = getAreaColor();
+
+	// If it's a binary sensor, use the bar chart
+	if (isBinarySensor) {
+		const sensorName = sensorId?.split('/').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+		return <BinaryBarChart series={series} height={height} threshold={threshold} sensorName={sensorName} />;
+	}
 
 	return (
 		<div className="w-full relative">

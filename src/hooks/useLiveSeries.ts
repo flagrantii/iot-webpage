@@ -66,7 +66,7 @@ export function useLiveSeries(sensorId: string, range: TimeRange) {
 		};
 	}, [sensorId]);
 
-	// Paint loop at ~250ms
+	// Paint loop at 2 seconds for better binary data visualization
 	useEffect(() => {
 		const paint = () => {
 			const now = Date.now();
@@ -82,9 +82,9 @@ export function useLiveSeries(sensorId: string, range: TimeRange) {
 				setSeries((prev) => prev.filter((p) => now - p.timestamp <= rangeMs));
 			}
 
-			rafRef.current = window.setTimeout(paint, 250) as unknown as number;
+			rafRef.current = window.setTimeout(paint, 2000) as unknown as number;
 		};
-		rafRef.current = window.setTimeout(paint, 250) as unknown as number;
+		rafRef.current = window.setTimeout(paint, 2000) as unknown as number;
 		return () => {
 			if (rafRef.current) window.clearTimeout(rafRef.current);
 		};
