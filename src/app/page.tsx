@@ -1,103 +1,77 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import KpiCard from "@/components/KpiCard";
+import RealtimeChart from "@/components/RealtimeChart";
+import SensorTable from "@/components/SensorTable";
+import AlertConfigPanel from "@/components/AlertConfigPanel";
+import { useLiveSeries, type TimeRange } from "@/hooks/useLiveSeries";
+import { useAlertsStore, evaluateAlert } from "@/store/alerts.store";
+
+const DEFAULT_SENSORS = ["/esp32/light", "/esp32/smoke", "/esp32/sound", "/raspi/gyro", "/raspi/flame"];
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [selectedSensor, setSelectedSensor] = useState<string>(DEFAULT_SENSORS[0]);
+  const [range, setRange] = useState<TimeRange>("15m");
+  const { series, latest, lastUpdated } = useLiveSeries(selectedSensor, range);
+  const { rules, addEvent } = useAlertsStore();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Simple evaluation
+  const activeRule = rules[selectedSensor];
+  const severity = useMemo(() => (activeRule ? evaluateAlert(series, activeRule) : null), [series, activeRule]);
+
+  useEffect(() => {
+    if (severity && latest && activeRule) {
+      addEvent({
+        eventId: `${selectedSensor}-${latest.timestamp}`,
+        sensorId: selectedSensor,
+        value: latest.value,
+        triggeredAt: Date.now(),
+        severity,
+      });
+    }
+  }, [severity, latest, activeRule, selectedSensor, addEvent]);
+
+  const kpis = [
+    { title: "Total sensors", value: DEFAULT_SENSORS.length },
+    { title: "Active alerts", value: severity ? 1 : 0 },
+    { title: "Last update", value: lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "-" },
+  ];
+
+  return (
+    <div className="min-h-screen p-6 sm:p-8">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-semibold">Realtime Sensor Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <select aria-label="Select sensor" value={selectedSensor} onChange={(e) => setSelectedSensor(e.target.value)} className="border rounded px-2 py-1">
+            {DEFAULT_SENSORS.map((id) => (
+              <option key={id} value={id}>{id}</option>
+            ))}
+          </select>
+          <select aria-label="Select time range" value={range} onChange={(e) => setRange(e.target.value as TimeRange)} className="border rounded px-2 py-1">
+            <option value="15m">15m</option>
+            <option value="1h">1h</option>
+            <option value="6h">6h</option>
+            <option value="24h">24h</option>
+          </select>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        {kpis.map((k) => (
+          <KpiCard key={k.title} title={k.title} value={k.value} />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 border rounded-lg p-3">
+          <RealtimeChart series={series} />
+        </div>
+        <div>
+          <AlertConfigPanel sensorId={selectedSensor} />
+        </div>
+      </div>
+      <div className="mt-6">
+        <SensorTable rows={DEFAULT_SENSORS.map((id) => ({ sensorId: id, latest: id === selectedSensor ? latest : null }))} />
+      </div>
     </div>
   );
 }
