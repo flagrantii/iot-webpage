@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import KpiCard from "@/components/KpiCard";
 import RealtimeChart from "@/components/RealtimeChart";
+import BarChart from "@/components/BarChart";
 import SensorTable from "@/components/SensorTable";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
 import MultiSensorCharts from "@/components/MultiSensorCharts";
@@ -23,6 +24,17 @@ const DEFAULT_SENSORS = SECURITY_SENSORS.map(s => s.id);
 
 function getSensorInfo(sensorId: string) {
   return SECURITY_SENSORS.find(s => s.id === sensorId) || { name: sensorId, icon: "📊", zone: "Unknown" };
+}
+
+// Determine if sensor should use bar chart (for binary/discrete data)
+function shouldUseBarChart(sensorId: string): { useBar: boolean; type?: "audio" | "flame" | "binary" } {
+  if (sensorId === "/esp32/sound") {
+    return { useBar: true, type: "audio" };
+  }
+  if (sensorId === "/raspi/flame") {
+    return { useBar: true, type: "flame" };
+  }
+  return { useBar: false };
 }
 
 function SecurityHeader({ onlineCount, alertCount }: { onlineCount: number; alertCount: number }) {
@@ -163,6 +175,7 @@ export default function Home() {
   ];
 
   const selectedSensorInfo = getSensorInfo(selectedSensor);
+  const selectedChartConfig = shouldUseBarChart(selectedSensor);
 
   return (
     <div className="min-h-screen security-grid bg-background">
@@ -242,7 +255,14 @@ export default function Home() {
                 </div>
               </div>
               <div className="p-4">
-                <RealtimeChart series={series} />
+                {selectedChartConfig.useBar ? (
+                  <BarChart 
+                    series={series} 
+                    sensorType={selectedChartConfig.type}
+                  />
+                ) : (
+                  <RealtimeChart series={series} />
+                )}
               </div>
             </div>
           </div>
