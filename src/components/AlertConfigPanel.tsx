@@ -20,13 +20,13 @@ type Props = {
 	sensorId: string;
 };
 
-// Security sensor mapping
+// Security sensor mapping with default thresholds
 const SECURITY_SENSORS = [
-	{ id: "/esp32/light", name: "Perimeter Lighting", icon: "🔆", zone: "Outer Perimeter", unit: "lux" },
-	{ id: "/esp32/smoke", name: "Smoke Detection", icon: "🔥", zone: "Cell Block A", unit: "ppm" },
-	{ id: "/esp32/sound", name: "Audio Monitoring", icon: "🔊", zone: "Common Area", unit: "dB" },
-	{ id: "/raspi/gyro", name: "Shaking Detection", icon: "📳", zone: "Entry Point", unit: "deg/s" },
-	{ id: "/raspi/flame", name: "Fire Detection", icon: "🚨", zone: "Kitchen Area", unit: "level" }
+	{ id: "/esp32/light", name: "Perimeter Lighting", icon: "🔆", zone: "Outer Perimeter", unit: "lux", defaultThreshold: 40 },
+	{ id: "/esp32/smoke", name: "Smoke Detection", icon: "🔥", zone: "Cell Block A", unit: "ppm", defaultThreshold: 2000 },
+	{ id: "/esp32/sound", name: "Audio Monitoring", icon: "🔊", zone: "Common Area", unit: "dB", defaultThreshold: 0 },
+	{ id: "/raspi/gyro", name: "Shaking Detection", icon: "📳", zone: "Entry Point", unit: "deg/s", defaultThreshold: 30 },
+	{ id: "/raspi/flame", name: "Fire Detection", icon: "🚨", zone: "Kitchen Area", unit: "level", defaultThreshold: 1 }
 ];
 
 function getSensorInfo(sensorId: string) {
@@ -34,7 +34,8 @@ function getSensorInfo(sensorId: string) {
 		name: sensorId, 
 		icon: "📊", 
 		zone: "Unknown",
-		unit: "value"
+		unit: "value",
+		defaultThreshold: 30
 	};
 }
 
@@ -52,7 +53,7 @@ export default function AlertConfigPanel({ sensorId }: Props) {
 	} = useForm<FormValues>({
 		resolver: zodResolver(schema),
 		defaultValues: existing || {
-			threshold: 30,
+			threshold: sensorInfo.defaultThreshold,
 			op: "gt",
 			windowSec: 60,
 			enabled: true,
@@ -142,7 +143,7 @@ export default function AlertConfigPanel({ sensorId }: Props) {
 										step="0.1" 
 										{...register("threshold", { valueAsNumber: true })} 
 										className="w-full mt-1 px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent"
-										placeholder="Enter threshold..."
+										placeholder={`Default: ${sensorInfo.defaultThreshold} ${sensorInfo.unit}`}
 									/>
 									{errors.threshold && (
 										<span className="text-xs text-red-400 mt-1 block">{errors.threshold.message}</span>
@@ -228,7 +229,7 @@ export default function AlertConfigPanel({ sensorId }: Props) {
 				<ul className="text-xs text-gray-500 space-y-1">
 					<li>• Critical alerts require immediate attention</li>
 					<li>• Shorter windows provide faster detection</li>
-					<li>• Set thresholds based on normal operating ranges</li>
+					<li>• Default threshold: <span className="text-blue-400 font-mono">{sensorInfo.defaultThreshold} {sensorInfo.unit}</span></li>
 					<li>• Test configurations during maintenance windows</li>
 				</ul>
 			</div>
