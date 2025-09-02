@@ -110,8 +110,7 @@ export function RealtimeChart({ series, height = 300, threshold, sensorId }: Pro
 
 	// If it's a binary sensor, use the bar chart
 	if (isBinarySensor) {
-		const sensorName = sensorId?.split('/').pop()?.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-		return <BinaryBarChart series={series} height={height} threshold={threshold} sensorName={sensorName} />;
+		return <BinaryBarChart series={series} height={height} />;
 	}
 
 	return (

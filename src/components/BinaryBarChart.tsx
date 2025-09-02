@@ -17,11 +17,9 @@ import type { SensorPoint } from "@/types/sensor";
 type Props = {
 	series: SensorPoint[];
 	height?: number;
-	threshold?: number;
-	sensorName?: string;
 };
 
-export function BinaryBarChart({ series, height = 300, threshold, sensorName }: Props) {
+export function BinaryBarChart({ series, height = 300 }: Props) {
 	const { data, stats } = useMemo(() => {
 		// Group data by 2-second intervals for better visualization
 		const groupedData: { [key: string]: { timestamp: number; value: number; count: number } } = {};
