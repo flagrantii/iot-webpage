@@ -17,10 +17,9 @@ type Props = {
 	series: SensorPoint[];
 	height?: number;
 	threshold?: number;
-	alertZone?: { min?: number; max?: number };
 };
 
-export function RealtimeChart({ series, height = 300, threshold, alertZone }: Props) {
+export function RealtimeChart({ series, height = 300, threshold }: Props) {
 	const { data, stats } = useMemo(() => {
 		const chartData = series.map((p, index) => ({
 			t: new Date(p.timestamp).toLocaleTimeString([], { 
@@ -47,7 +46,11 @@ export function RealtimeChart({ series, height = 300, threshold, alertZone }: Pr
 	}, [series]);
 
 	// Custom tooltip component
-	const CustomTooltip = ({ active, payload, label }: any) => {
+	const CustomTooltip = ({ active, payload, label }: { 
+		active?: boolean; 
+		payload?: Array<{ value: number; payload: { status?: string } }>; 
+		label?: string 
+	}) => {
 		if (active && payload && payload.length) {
 			const data = payload[0].payload;
 			return (

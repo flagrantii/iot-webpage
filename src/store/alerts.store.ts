@@ -15,13 +15,14 @@ type AlertsState = {
 
 export const useAlertsStore = create<AlertsState>()(
 	persist(
-		(set, get) => ({
+		(set) => ({
 			rules: {},
 			events: [],
 			setRule: (rule) => set((s) => ({ rules: { ...s.rules, [rule.sensorId]: rule } })),
 			removeRule: (sensorId) =>
 				set((s) => {
-					const { [sensorId]: _omit, ...rest } = s.rules;
+					// eslint-disable-next-line @typescript-eslint/no-unused-vars
+					const { [sensorId]: _, ...rest } = s.rules;
 					return { rules: rest };
 				}),
 			addEvent: (event) => set((s) => ({ events: [event, ...s.events].slice(0, 100) })),

@@ -5,10 +5,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAlertsStore } from "@/store/alerts.store";
-import type { AlertOp } from "@/types/alert";
+
 
 const schema = z.object({
-	threshold: z.number({ invalid_type_error: "Enter a number" }),
+	threshold: z.number({ message: "Enter a number" }),
 	op: z.enum(["gt", "lt", "gte", "lte"] as const),
 	windowSec: z.number().int().min(5).max(3600),
 	enabled: z.boolean(),

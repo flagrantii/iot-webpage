@@ -88,7 +88,13 @@ export default function Home() {
   }, [severity, latest, activeRule, selectedSensor, addEvent]);
 
   // Enhanced KPIs for security monitoring
-  const securityKpis = [
+  const securityKpis: Array<{
+    title: string;
+    value: string;
+    subtitle: string;
+    status: "operational" | "alert" | "secure" | "info" | "warning" | "critical";
+    icon: string;
+  }> = [
     { 
       title: "Sensor Network", 
       value: `${onlineCount}/${DEFAULT_SENSORS.length}`, 
