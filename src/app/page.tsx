@@ -1,289 +1,179 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import KpiCard from "@/components/KpiCard";
-import RealtimeChart from "@/components/RealtimeChart";
-import SensorTable from "@/components/SensorTable";
-import AlertConfigPanel from "@/components/AlertConfigPanel";
-import MultiSensorCharts from "@/components/MultiSensorCharts";
-import { useLiveSeries, type TimeRange } from "@/hooks/useLiveSeries";
+import { useState, useMemo } from "react";
 import { useMultiSensorLive } from "@/hooks/useMultiSensorLive";
-import { useAlertsStore, evaluateAlert } from "@/store/alerts.store";
+import StatCard from "@/components/StatCard";
+import LiveChart from "@/components/LiveChart";
+import SensorStatusCard from "@/components/SensorStatusCard";
 
-// Security sensor mapping with proper naming for jail monitoring
-const SECURITY_SENSORS = [
-  { id: "/esp32/light", name: "Perimeter Lighting", icon: "🔆", zone: "Outer Perimeter" },
-  { id: "/esp32/smoke", name: "Smoke Detection", icon: "🔥", zone: "Cell Block A" },
-  { id: "/esp32/sound", name: "Audio Monitoring", icon: "🔊", zone: "Common Area" },
-  { id: "/raspi/gyro", name: "Shaking Detection", icon: "📳", zone: "Entry Point" },
-  { id: "/raspi/flame", name: "Fire Detection", icon: "🚨", zone: "Kitchen Area" }
+// Sensor Definitions
+const SENSORS = [
+  { id: "raspi/sensors/dht/temp", name: "Temperature", icon: "🌡️", unit: "°C", group: "env" },
+  { id: "raspi/sensors/dht/humid", name: "Humidity", icon: "💧", unit: "%", group: "env" },
+  { id: "raspi/node/sound", name: "Noise Level", icon: "🔊", unit: "dB", group: "env" },
+  { id: "raspi/node/flame", name: "Flame Detect", icon: "🔥", unit: "val", group: "safety" },
+  { id: "raspi/node/smoke", name: "Smoke Detect", icon: "💨", unit: "ppm", group: "safety" },
+  { id: "raspi/sensors/gyro", name: "Vibration", icon: "📳", unit: "G", group: "safety" },
+  { id: "raspi/ppe/total", name: "Personnel", icon: "👷", unit: "ppl", group: "safety" },
 ];
 
-const DEFAULT_SENSORS = SECURITY_SENSORS.map(s => s.id);
+const SENSOR_IDS = SENSORS.map(s => s.id);
 
-function getSensorInfo(sensorId: string) {
-  return SECURITY_SENSORS.find(s => s.id === sensorId) || { name: sensorId, icon: "📊", zone: "Unknown" };
-}
-
-function SecurityHeader({ onlineCount, alertCount }: { onlineCount: number; alertCount: number }) {
-  const currentTime = new Date().toLocaleString();
+export default function Dashboard() {
+  const [selectedSensorId, setSelectedSensorId] = useState(SENSORS[0].id);
+  const [timeRange, setTimeRange] = useState<"15m" | "1h">("15m");
   
-  return (
-    <header className="mb-8">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">
-              SECURITY MONITORING SYSTEM
-            </h1>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 text-sm text-gray-300">
-          <span>Station ID: SEC-001</span>
-          <span>•</span>
-          <span>{currentTime}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-6 text-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-          <span className="text-green-400 font-medium">{onlineCount} Sensors Online</span>
-        </div>
-        {alertCount > 0 && (
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-            <span className="text-red-400 font-medium">{alertCount} Active Alerts</span>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-          <span className="text-blue-400 font-medium">System Operational</span>
-        </div>
-      </div>
-    </header>
-  );
-}
+  const data = useMultiSensorLive(SENSOR_IDS, timeRange);
+  console.log(data);
 
-export default function Home() {
-  const [selectedSensor, setSelectedSensor] = useState<string>(DEFAULT_SENSORS[0]);
-  const [range, setRange] = useState<TimeRange>("15m");
-  const { series, latest, lastUpdated } = useLiveSeries(selectedSensor, range);
-  const multiSensorData = useMultiSensorLive(DEFAULT_SENSORS, range);
-  const { rules, addEvent } = useAlertsStore();
-
-  // Enhanced security evaluation for all sensors
-  const allSensorAlerts = useMemo(() => {
-    let totalAlerts = 0;
-    const activeAlerts: string[] = [];
+  // Calculate Derived Stats
+  const stats = useMemo(() => {
+    const temp = data["raspi/sensors/dht/temp"]?.latest?.value ?? 0;
+    const humid = data["raspi/sensors/dht/humid"]?.latest?.value ?? 0;
+    const ppe = data["raspi/ppe/total"]?.latest?.value ?? 0;
     
-    DEFAULT_SENSORS.forEach(sensorId => {
-      const rule = rules[sensorId];
-      const sensorData = multiSensorData[sensorId];
-      if (rule && sensorData?.series) {
-        const severity = evaluateAlert(sensorData.series, rule);
-        if (severity) {
-          totalAlerts++;
-          activeAlerts.push(sensorId);
-        }
-      }
-    });
-    
-    return { totalAlerts, activeAlerts };
-  }, [rules, multiSensorData]);
-
-  // Count online sensors
-  const onlineCount = useMemo(() => {
-    return DEFAULT_SENSORS.filter(sensorId => {
-      const sensorData = multiSensorData[sensorId];
-      return sensorData?.latest && sensorData.lastUpdated && (Date.now() - sensorData.lastUpdated < 30000); // 30 seconds threshold
+    const onlineCount = SENSOR_IDS.filter(id => {
+        const last = data[id]?.lastUpdated;
+        return last && (Date.now() - last < 60000);
     }).length;
-  }, [multiSensorData]);
 
-  const alertCount = allSensorAlerts.totalAlerts;
+    return { temp, humid, ppe, onlineCount };
+  }, [data]);
 
-  // Add events for all sensors with alerts
-  const activeAlertsKey = allSensorAlerts.activeAlerts.join(',');
-  
-  useEffect(() => {
-    allSensorAlerts.activeAlerts.forEach(sensorId => {
-      const rule = rules[sensorId];
-      const sensorData = multiSensorData[sensorId];
-      if (rule && sensorData?.latest && sensorData.series) {
-        const severity = evaluateAlert(sensorData.series, rule);
-        if (severity) {
-          addEvent({
-            eventId: `${sensorId}-${sensorData.latest.timestamp}`,
-            sensorId,
-            value: sensorData.latest.value,
-            triggeredAt: Date.now(),
-            severity,
-          });
-        }
-      }
-    });
-  }, [activeAlertsKey, allSensorAlerts.activeAlerts, rules, multiSensorData, addEvent]);
+  const selectedSensor = SENSORS.find(s => s.id === selectedSensorId) || SENSORS[0];
+  const selectedSeries = data[selectedSensorId]?.series || [];
 
-  // Enhanced KPIs for security monitoring
-  const securityKpis: Array<{
-    title: string;
-    value: string;
-    subtitle: string;
-    status: "operational" | "alert" | "secure" | "info" | "warning" | "critical";
-    icon: string;
-  }> = [
-    { 
-      title: "Sensor Network", 
-      value: `${onlineCount}/${DEFAULT_SENSORS.length}`, 
-      subtitle: "Online/Total",
-      status: "operational",
-      icon: "🛡️"
-    },
-    { 
-      title: "Security Level", 
-      value: alertCount > 0 ? "ALERT" : "SECURE", 
-      subtitle: alertCount > 0 ? `${alertCount} Active` : "All Clear",
-      status: alertCount > 0 ? "alert" : "secure",
-      icon: alertCount > 0 ? "🚨" : "✅"
-    },
-    { 
-      title: "Last Sync", 
-      value: lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "---", 
-      subtitle: "System Update",
-      status: "info",
-      icon: "🔄"
-    },
-    { 
-      title: "Active Zone", 
-      value: getSensorInfo(selectedSensor).zone, 
-      subtitle: getSensorInfo(selectedSensor).name,
-      status: "info",
-      icon: getSensorInfo(selectedSensor).icon
-    }
-  ];
 
-  const selectedSensorInfo = getSensorInfo(selectedSensor);
+  // Status Logic Helper
+  const getStatus = (id: string, value: number): "ok" | "warn" | "critical" => {
+    // Simple thresholds for demo
+    if (id.includes("flame") && value > 0) return "critical";
+    if (id.includes("smoke") && value > 1500) return "warn";
+    if (id.includes("temp") && value > 35) return "warn";
+    return "ok";
+  };
 
   return (
-    <div className="min-h-screen security-grid bg-background">
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
-        <SecurityHeader onlineCount={onlineCount} alertCount={alertCount} />
+    <div className="min-h-screen bg-black text-gray-100 p-4 md:p-8 font-sans selection:bg-emerald-500/30">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Control Panel */}
-        <div className="bg-black/20 border border-gray-700/50 rounded-lg p-4 mb-6 backdrop-blur-sm">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="text-gray-400 text-sm font-medium">MONITORING CONTROL:</span>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{selectedSensorInfo.icon}</span>
-                <span className="text-white font-medium">{selectedSensorInfo.name}</span>
-                <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded border border-blue-500/30">
-                  {selectedSensorInfo.zone}
-                </span>
-              </div>
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-800 pb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+              EcoGuard Monitor
+            </h1>
+            <p className="text-gray-400 text-sm mt-1">Real-time Environmental & Safety Dashboard</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-900 border border-gray-800 text-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>System Online</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex flex-col">
-                <label className="text-xs text-gray-400 mb-1">SENSOR</label>
-                <select 
-                  aria-label="Select security sensor" 
-                  value={selectedSensor} 
-                  onChange={(e) => setSelectedSensor(e.target.value)} 
-                  className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                >
-                  {SECURITY_SENSORS.map((sensor) => (
-                    <option key={sensor.id} value={sensor.id}>
-                      {sensor.icon} {sensor.name} - {sensor.zone}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col">
-                <label className="text-xs text-gray-400 mb-1">TIME RANGE</label>
-                <select 
-                  aria-label="Select monitoring time range" 
-                  value={range} 
-                  onChange={(e) => setRange(e.target.value as TimeRange)} 
-                  className="bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                >
-                  <option value="15m">15 Minutes</option>
-                  <option value="1h">1 Hour</option>
-                  <option value="6h">6 Hours</option>
-                  <option value="24h">24 Hours</option>
-                </select>
-              </div>
+            <div className="text-right">
+              <div className="text-xs text-gray-500">Station ID</div>
+              <div className="font-mono font-medium">RASPI-01</div>
             </div>
           </div>
+        </header>
+
+        {/* KPI Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard 
+            title="Avg Temperature" 
+            value={stats.temp.toFixed(1)} 
+            unit="°C" 
+            icon="🌡️" 
+            status={stats.temp > 30 ? "warning" : "normal"}
+          />
+          <StatCard 
+            title="Humidity" 
+            value={stats.humid.toFixed(1)} 
+            unit="%" 
+            icon="💧" 
+            status="normal"
+          />
+          <StatCard 
+            title="Personnel on Site" 
+            value={stats.ppe} 
+            unit="ppl" 
+            icon="👷" 
+            status={stats.ppe > 0 ? "normal" : "warning"} // Warning if 0 maybe? Or normal.
+          />
+          <StatCard 
+            title="Active Sensors" 
+            value={`${stats.onlineCount}/${SENSOR_IDS.length}`} 
+            icon="📡" 
+            status={stats.onlineCount === SENSOR_IDS.length ? "normal" : "warning"}
+          />
         </div>
 
-        {/* Security KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {securityKpis.map((kpi) => (
-            <KpiCard key={kpi.title} {...kpi} />
-          ))}
-        </div>
-
-        {/* Main Monitoring Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 mb-8">
-          {/* Live Data Visualization */}
-          <div className="xl:col-span-3">
-            <div className="bg-black/30 border border-gray-700/50 rounded-lg overflow-hidden backdrop-blur-sm">
-              <div className="p-4 border-b border-gray-700/50">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                    📈 Live Sensor Data - {selectedSensorInfo.name}
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${latest ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-                    <span className="text-sm text-gray-400">
-                      {latest ? 'Live' : 'Offline'}
-                    </span>
-                  </div>
+        {/* Main Layout: Chart + Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 h-[600px]">
+          
+          {/* Left: Main Chart (Takes 2/3) */}
+          <div className="xl:col-span-2 bg-gray-900/30 border border-gray-800 rounded-2xl p-6 flex flex-col backdrop-blur-sm relative overflow-hidden">
+             {/* Chart Controls */}
+             <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h2 className="text-xl font-semibold text-white">{selectedSensor.name} History</h2>
+                    <p className="text-sm text-gray-500">Real-time data stream visualization</p>
                 </div>
-              </div>
-              <div className="p-4">
-                <RealtimeChart series={series} sensorId={selectedSensor} />
-              </div>
+                <div className="flex bg-gray-800 rounded-lg p-1 gap-1">
+                    {(['15m', '1h'] as const).map((r) => (
+                        <button
+                            key={r}
+                            onClick={() => setTimeRange(r)}
+                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                                timeRange === r 
+                                ? 'bg-gray-700 text-white shadow-sm' 
+                                : 'text-gray-400 hover:text-gray-200'
+                            }`}
+                        >
+                            {r}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div className="flex-1 w-full">
+                <LiveChart 
+                    data={selectedSeries} 
+                    color={selectedSensor.id.includes('flame') ? '#f43f5e' : '#10b981'}
+                    unit={selectedSensor.unit}
+                    title={selectedSensor.name}
+                />
             </div>
           </div>
 
-          {/* Alert Configuration */}
-          <div className="xl:col-span-1">
-            <div className="bg-black/30 border border-gray-700/50 rounded-lg overflow-hidden backdrop-blur-sm">
-              <div className="p-4 border-b border-gray-700/50">
-                <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                  ⚙️ Alert Configuration
-                </h2>
-              </div>
-              <div className="p-4">
-                <AlertConfigPanel sensorId={selectedSensor} />
-              </div>
-            </div>
-          </div>
-        </div>
+          {/* Right: Sensor Grid (Takes 1/3) */}
+          <div className="flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar">
+            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Sensor Feed</h3>
+            
+            {SENSORS.map(sensor => {
+                const sensorData = data[sensor.id];
+                const val = sensorData?.latest?.value ?? 0;
+                const status = getStatus(sensor.id, val);
 
-        {/* Multi-Sensor Charts */}
-        <div className="mb-8">
-          <MultiSensorCharts sensorData={multiSensorData} />
-        </div>
+                return (
+                    <SensorStatusCard 
+                        key={sensor.id}
+                        title={sensor.name}
+                        value={val}
+                        unit={sensor.unit}
+                        icon={sensor.icon}
+                        status={status}
+                        lastUpdated={sensorData?.lastUpdated || null}
+                        isSelected={selectedSensorId === sensor.id}
+                        onClick={() => setSelectedSensorId(sensor.id)}
+                    />
+                );
+            })}
+          </div>
 
-        {/* Security Sensor Overview */}
-        <div className="bg-black/30 border border-gray-700/50 rounded-lg overflow-hidden backdrop-blur-sm">
-          <div className="p-4 border-b border-gray-700/50">
-            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              🛡️ Security Sensor Network Status
-            </h2>
-          </div>
-          <div className="p-4">
-            <SensorTable rows={DEFAULT_SENSORS.map((id) => ({ 
-              sensorId: id, 
-              latest: multiSensorData[id]?.latest || null,
-              series: multiSensorData[id]?.series || [],
-              lastUpdated: multiSensorData[id]?.lastUpdated || null
-            }))} />
-          </div>
         </div>
       </div>
     </div>
   );
 }
+

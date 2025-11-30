@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { subscribeEsp32, subscribeRaspiGyro, subscribeRaspiFlame, subscribeRaspiGyroLog } from "@/lib/rtdb";
+import { 
+	subscribeToPath, 
+	transformNodeSensor, 
+	transformPPE, 
+	transformDHT, 
+	transformGyro 
+} from "@/lib/rtdb";
 import type { SensorPoint } from "@/types/sensor";
 import { TimeRange } from "./useLiveSeries";
 
@@ -24,7 +30,7 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 	const rafRef = useRef<number | null>(null);
 	const sensorIdsKey = sensorIds.join(',');
 
-	// Initialize buffers for all sensors
+	// Initialize buffers and state
 	useEffect(() => {
 		const newBuffers: Record<string, SensorPoint[]> = {};
 		sensorIds.forEach(id => {
@@ -32,7 +38,6 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 		});
 		buffersRef.current = newBuffers;
 
-		// Initialize sensor data state
 		setSensorData(prevData => {
 			const newData: MultiSensorData = {};
 			sensorIds.forEach(id => {
@@ -46,76 +51,46 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 		});
 	}, [sensorIdsKey, sensorIds]);
 
-	// Load historical data for each sensor
-	useEffect(() => {
-		const unsubscribers: (() => void)[] = [];
-
-		sensorIds.forEach(sensorId => {
-			buffersRef.current[sensorId] = [];
-			
-			if (sensorId === "/raspi/gyro") {
-				const unsub = subscribeRaspiGyroLog(200, (point) => {
-					if (buffersRef.current[sensorId]) {
-						buffersRef.current[sensorId].push(point);
-					}
-				});
-				unsubscribers.push(unsub);
-			}
-			// Add other historical data subscriptions as needed
-		});
-
-		return () => {
-			unsubscribers.forEach(unsub => unsub());
-		};
-	}, [sensorIdsKey, sensorIds]);
-
-	// Subscribe to live updates for all sensors
+	// Subscribe to live updates
 	useEffect(() => {
 		const unsubscribers: (() => void)[] = [];
 
 		sensorIds.forEach(sensorId => {
 			let unsubscribe: (() => void) | null = null;
+			
+			const handleUpdate = (point: SensorPoint) => {
+				if (buffersRef.current[sensorId]) {
+					buffersRef.current[sensorId].push(point);
+				}
+				// Optimistically update lastUpdated to trigger UI liveness indicators if needed,
+				// though the real data update happens in the RAF loop.
+				setSensorData(prev => ({
+					...prev,
+					[sensorId]: {
+						...prev[sensorId],
+						lastUpdated: point.timestamp
+					}
+				}));
+			};
 
-			if (sensorId.startsWith("/esp32/")) {
-				const key = sensorId.split("/").pop() as "light" | "smoke" | "sound";
-				unsubscribe = subscribeEsp32(key, (point) => {
-					if (buffersRef.current[sensorId]) {
-						buffersRef.current[sensorId].push(point);
-					}
-					setSensorData(prev => ({
-						...prev,
-						[sensorId]: {
-							...prev[sensorId],
-							lastUpdated: point.timestamp
-						}
-					}));
-				});
-			} else if (sensorId === "/raspi/gyro") {
-				unsubscribe = subscribeRaspiGyro((point) => {
-					if (buffersRef.current[sensorId]) {
-						buffersRef.current[sensorId].push(point);
-					}
-					setSensorData(prev => ({
-						...prev,
-						[sensorId]: {
-							...prev[sensorId],
-							lastUpdated: point.timestamp
-						}
-					}));
-				});
-			} else if (sensorId === "/raspi/flame") {
-				unsubscribe = subscribeRaspiFlame((point) => {
-					if (buffersRef.current[sensorId]) {
-						buffersRef.current[sensorId].push(point);
-					}
-					setSensorData(prev => ({
-						...prev,
-						[sensorId]: {
-							...prev[sensorId],
-							lastUpdated: point.timestamp
-						}
-					}));
-				});
+			if (sensorId === "raspi/node/flame") {
+				unsubscribe = subscribeToPath("raspi/node/flame", transformNodeSensor, handleUpdate);
+			} else if (sensorId === "raspi/node/smoke") {
+				unsubscribe = subscribeToPath("raspi/node/smoke", transformNodeSensor, handleUpdate);
+			} else if (sensorId === "raspi/node/sound") {
+				unsubscribe = subscribeToPath("raspi/node/sound", transformNodeSensor, handleUpdate);
+			} else if (sensorId === "raspi/sensors/dht/temp") {
+				unsubscribe = subscribeToPath("raspi/sensors/dht", (val) => transformDHT(val, 'temp'), handleUpdate);
+			} else if (sensorId === "raspi/sensors/dht/humid") {
+				unsubscribe = subscribeToPath("raspi/sensors/dht", (val) => transformDHT(val, 'humid'), handleUpdate);
+			} else if (sensorId === "raspi/sensors/gyro") {
+				unsubscribe = subscribeToPath("raspi/sensors/gyro", transformGyro, handleUpdate);
+			} else if (sensorId === "raspi/ppe/total") {
+				unsubscribe = subscribeToPath("raspi/ppe", (val) => transformPPE(val, 'total'), handleUpdate);
+			} else if (sensorId === "raspi/ppe/hat") {
+				unsubscribe = subscribeToPath("raspi/ppe", (val) => transformPPE(val, 'hat'), handleUpdate);
+			} else if (sensorId === "raspi/ppe/person") {
+				unsubscribe = subscribeToPath("raspi/ppe", (val) => transformPPE(val, 'person'), handleUpdate);
 			}
 
 			if (unsubscribe) {
@@ -128,7 +103,7 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 		};
 	}, [sensorIdsKey, sensorIds]);
 
-	// Data refresh loop every 2 seconds to process buffered data
+	// Data refresh loop
 	useEffect(() => {
 		const refreshMultiSensorData = () => {
 			const now = Date.now();
@@ -142,14 +117,12 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 					const prevSensorData = prevData[sensorId] || { series: [], latest: null, lastUpdated: null };
 
 					if (buffer.length > 0) {
-						// Merge new points with existing series
 						const merged = [...prevSensorData.series, ...buffer];
-						// Clear the buffer after processing
 						buffersRef.current[sensorId] = [];
-						// Filter by time range
-						const filtered = merged.filter((p) => now - p.timestamp <= rangeMs);
-						// Sort by timestamp to ensure proper ordering
-						filtered.sort((a, b) => a.timestamp - b.timestamp);
+						
+						const filtered = merged
+							.filter((p) => now - p.timestamp <= rangeMs)
+							.sort((a, b) => a.timestamp - b.timestamp);
 
 						newData[sensorId] = {
 							series: filtered,
@@ -157,7 +130,6 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 							lastUpdated: prevSensorData.lastUpdated
 						};
 					} else {
-						// No new data, just filter old points
 						const filtered = prevSensorData.series.filter((p) => now - p.timestamp <= rangeMs);
 						newData[sensorId] = {
 							series: filtered,

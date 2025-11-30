@@ -1,0 +1,61 @@
+{
+  "raspi": {
+    "node": {
+      "flame": {
+        "detect": false,
+        "raw": {
+          "detect": false,
+          "value": 0
+        },
+        "src": "esp32",
+        "ts": 1764491064.0901687,
+        "value": 0
+      },
+      "smoke": {
+        "detect": true,
+        "raw": {
+          "detect": true,
+          "value": 2169
+        },
+        "src": "esp32",
+        "ts": 1764491063.5462549,
+        "value": 2169
+      },
+      "sound": {
+        "detect": true,
+        "raw": {
+          "detect": true,
+          "value": 1
+        },
+        "src": "esp32",
+        "ts": 1764491064.1320121,
+        "value": 1
+      }
+    },
+    "ppe": {
+      "classes": {
+        "hat": 1,
+        "person": 2
+      },
+      "total": 3,
+      "ts": 1764492676.4394221
+    },
+    "sensors": {
+      "dht": {
+        "humidity_pct": 52,
+        "src": "raspi:dht",
+        "temperature_c": 28.3,
+        "ts": 1764492677.1129775
+      },
+      "gyro": {
+        "ax": -0.7595,
+        "ay": 0.3647,
+        "az": 0.6301,
+        "is_shaking": false,
+        "magnitude": 1.0521,
+        "src": "raspi:gyro",
+        "ts": 1764492676.7655885
+      }
+    }
+  }
+}

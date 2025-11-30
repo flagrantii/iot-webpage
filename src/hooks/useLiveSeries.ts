@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { subscribeSensor, subscribeSensorHistory, subscribeEsp32, subscribeRaspiGyro, subscribeRaspiGyroLog, subscribeRaspiFlame } from "@/lib/rtdb";
+import { 
+	subscribeToPath, 
+	subscribeSensorHistory, 
+	transformNodeSensor, 
+	transformPPE, 
+	transformDHT, 
+	transformGyro 
+} from "@/lib/rtdb";
 import type { SensorPoint } from "@/types/sensor";
 
 export type TimeRange = "15m" | "1h" | "6h" | "24h";
@@ -19,18 +26,15 @@ export function useLiveSeries(sensorId: string, range: TimeRange) {
 	const bufferRef = useRef<SensorPoint[]>([]);
 	const rafRef = useRef<number | null>(null);
 
-	// Prime with recent history (generic path) when using default sensors
+	// Prime with recent history (if available)
 	useEffect(() => {
 		bufferRef.current = [];
 		setSeries([]);
-		let unsubscribeHistory: (() => void) | null = null;
-		if (!sensorId.includes("/")) {
-			unsubscribeHistory = subscribeSensorHistory(sensorId, 200, (point) => {
-				bufferRef.current.push(point);
-			});
-		} else if (sensorId === "/raspi/gyro") {
-			unsubscribeHistory = subscribeRaspiGyroLog(200, (point) => bufferRef.current.push(point));
-		}
+		// Note: History implementation depends on whether your new DB structure supports it.
+		// For now, we skip history priming if not supported by the generic helper.
+		const unsubscribeHistory = subscribeSensorHistory(sensorId, 200, (point) => {
+			bufferRef.current.push(point);
+		});
 		return () => {
 			if (unsubscribeHistory) unsubscribeHistory();
 		};
@@ -39,34 +43,38 @@ export function useLiveSeries(sensorId: string, range: TimeRange) {
 	// Live updates for different sources
 	useEffect(() => {
 		let unsubscribe: (() => void) | null = null;
-		if (sensorId.startsWith("/esp32/")) {
-			const key = sensorId.split("/").pop() as "light" | "smoke" | "sound";
-			unsubscribe = subscribeEsp32(key, (point) => {
-				bufferRef.current.push(point);
-				setLastUpdated(point.timestamp);
-			});
-		} else if (sensorId === "/raspi/gyro") {
-			unsubscribe = subscribeRaspiGyro((point) => {
-				bufferRef.current.push(point);
-				setLastUpdated(point.timestamp);
-			});
-		} else if (sensorId === "/raspi/flame") {
-			unsubscribe = subscribeRaspiFlame((point) => {
-				bufferRef.current.push(point);
-				setLastUpdated(point.timestamp);
-			});
-		} else {
-			unsubscribe = subscribeSensor(sensorId, (point) => {
-				bufferRef.current.push(point);
-				setLastUpdated(point.timestamp);
-			});
+
+		const handleUpdate = (point: SensorPoint) => {
+			bufferRef.current.push(point);
+			setLastUpdated(point.timestamp);
+		};
+
+		if (sensorId === "raspi/node/flame") {
+			unsubscribe = subscribeToPath("raspi/node/flame", transformNodeSensor, handleUpdate);
+		} else if (sensorId === "raspi/node/smoke") {
+			unsubscribe = subscribeToPath("raspi/node/smoke", transformNodeSensor, handleUpdate);
+		} else if (sensorId === "raspi/node/sound") {
+			unsubscribe = subscribeToPath("raspi/node/sound", transformNodeSensor, handleUpdate);
+		} else if (sensorId === "raspi/sensors/dht/temp") {
+			unsubscribe = subscribeToPath("raspi/sensors/dht", (val) => transformDHT(val, 'temp'), handleUpdate);
+		} else if (sensorId === "raspi/sensors/dht/humid") {
+			unsubscribe = subscribeToPath("raspi/sensors/dht", (val) => transformDHT(val, 'humid'), handleUpdate);
+		} else if (sensorId === "raspi/sensors/gyro") {
+			unsubscribe = subscribeToPath("raspi/sensors/gyro", transformGyro, handleUpdate);
+		} else if (sensorId === "raspi/ppe/total") {
+			unsubscribe = subscribeToPath("raspi/ppe", (val) => transformPPE(val, 'total'), handleUpdate);
+		} else if (sensorId === "raspi/ppe/hat") {
+			unsubscribe = subscribeToPath("raspi/ppe", (val) => transformPPE(val, 'hat'), handleUpdate);
+		} else if (sensorId === "raspi/ppe/person") {
+			unsubscribe = subscribeToPath("raspi/ppe", (val) => transformPPE(val, 'person'), handleUpdate);
 		}
+
 		return () => {
 			if (unsubscribe) unsubscribe();
 		};
 	}, [sensorId]);
 
-	// Paint loop at 2 seconds for better binary data visualization
+	// Paint loop at 2 seconds
 	useEffect(() => {
 		const paint = () => {
 			const now = Date.now();
@@ -75,10 +83,12 @@ export function useLiveSeries(sensorId: string, range: TimeRange) {
 				setSeries((prev) => {
 					const merged = [...prev, ...bufferRef.current];
 					bufferRef.current = [];
-					return merged.filter((p) => now - p.timestamp <= rangeMs);
+					// Filter and sort
+					return merged
+						.filter((p) => now - p.timestamp <= rangeMs)
+						.sort((a, b) => a.timestamp - b.timestamp);
 				});
 			} else {
-				// Drop old points even if no new data arrived
 				setSeries((prev) => prev.filter((p) => now - p.timestamp <= rangeMs));
 			}
 
@@ -94,5 +104,3 @@ export function useLiveSeries(sensorId: string, range: TimeRange) {
 
 	return { series, latest, lastUpdated };
 }
-
-
