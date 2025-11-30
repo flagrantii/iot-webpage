@@ -32,9 +32,7 @@ export function useLiveSeries(sensorId: string, range: TimeRange) {
 		setSeries([]);
 		// Note: History implementation depends on whether your new DB structure supports it.
 		// For now, we skip history priming if not supported by the generic helper.
-		const unsubscribeHistory = subscribeSensorHistory(sensorId, 200, (point) => {
-			bufferRef.current.push(point);
-		});
+		const unsubscribeHistory = subscribeSensorHistory();
 		return () => {
 			if (unsubscribeHistory) unsubscribeHistory();
 		};

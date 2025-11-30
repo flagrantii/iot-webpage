@@ -8,10 +8,9 @@ type Props = {
   unit?: string;
   icon: string;
   status?: "normal" | "warning" | "critical";
-  trend?: "up" | "down" | "stable";
 };
 
-export default function StatCard({ title, value, unit, icon, status = "normal", trend }: Props) {
+export default function StatCard({ title, value, unit, icon, status = "normal" }: Props) {
   const statusColors = {
     normal: "border-emerald-500/30 bg-emerald-500/5 text-emerald-400",
     warning: "border-amber-500/30 bg-amber-500/5 text-amber-400",

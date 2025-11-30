@@ -1,7 +1,5 @@
 "use client";
 
-import type { SensorPoint } from "@/types/sensor";
-
 type Props = {
   title: string;
   value: number | string;
@@ -35,7 +33,6 @@ export default function SensorStatusCard({
     ? "ring-2 ring-emerald-500 border-transparent" 
     : "hover:border-gray-600";
 
-  const currentStatus = !isOnline ? "offline" : status;
 
   return (
     <button 
