@@ -24,7 +24,6 @@ export default function Dashboard() {
   const [timeRange, setTimeRange] = useState<"15m" | "1h">("15m");
   
   const data = useMultiSensorLive(SENSOR_IDS, timeRange);
-  console.log(data);
 
   // Calculate Derived Stats
   const stats = useMemo(() => {

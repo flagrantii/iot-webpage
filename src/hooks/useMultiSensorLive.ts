@@ -62,12 +62,12 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 				if (buffersRef.current[sensorId]) {
 					buffersRef.current[sensorId].push(point);
 				}
-				// Optimistically update lastUpdated to trigger UI liveness indicators if needed,
-				// though the real data update happens in the RAF loop.
+				// Update 'latest' and 'lastUpdated' immediately when data arrives
 				setSensorData(prev => ({
 					...prev,
 					[sensorId]: {
 						...prev[sensorId],
+						latest: point,
 						lastUpdated: point.timestamp
 					}
 				}));
@@ -103,7 +103,7 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 		};
 	}, [sensorIdsKey, sensorIds]);
 
-	// Data refresh loop
+	// Data refresh loop for charts
 	useEffect(() => {
 		const refreshMultiSensorData = () => {
 			const now = Date.now();
@@ -116,27 +116,24 @@ export function useMultiSensorLive(sensorIds: string[], range: TimeRange) {
 					const buffer = buffersRef.current[sensorId] || [];
 					const prevSensorData = prevData[sensorId] || { series: [], latest: null, lastUpdated: null };
 
+					// Merge and Filter
+					let merged = prevSensorData.series;
 					if (buffer.length > 0) {
-						const merged = [...prevSensorData.series, ...buffer];
-						buffersRef.current[sensorId] = [];
-						
-						const filtered = merged
-							.filter((p) => now - p.timestamp <= rangeMs)
-							.sort((a, b) => a.timestamp - b.timestamp);
-
-						newData[sensorId] = {
-							series: filtered,
-							latest: filtered.length > 0 ? filtered[filtered.length - 1] : null,
-							lastUpdated: prevSensorData.lastUpdated
-						};
-					} else {
-						const filtered = prevSensorData.series.filter((p) => now - p.timestamp <= rangeMs);
-						newData[sensorId] = {
-							series: filtered,
-							latest: filtered.length > 0 ? filtered[filtered.length - 1] : null,
-							lastUpdated: prevSensorData.lastUpdated
-						};
+						merged = [...merged, ...buffer];
+						buffersRef.current[sensorId] = []; // Clear buffer
 					}
+					
+					const filtered = merged
+						.filter((p) => now - p.timestamp <= rangeMs)
+						.sort((a, b) => a.timestamp - b.timestamp);
+
+					// We preserve 'latest' and 'lastUpdated' from previous state if no new data
+					// or if filtered series is empty (data fell out of window)
+					newData[sensorId] = {
+						series: filtered,
+						latest: prevSensorData.latest, // Keep existing latest
+						lastUpdated: prevSensorData.lastUpdated // Keep existing lastUpdated
+					};
 				});
 
 				return newData;
