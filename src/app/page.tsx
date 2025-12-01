@@ -2,9 +2,14 @@
 
 import { useState, useMemo } from "react";
 import { useMultiSensorLive } from "@/hooks/useMultiSensorLive";
+import { useAlertSystem } from "@/hooks/useAlertSystem";
+import { useAlertsStore } from "@/store/alerts.store";
 import StatCard from "@/components/StatCard";
 import LiveChart from "@/components/LiveChart";
 import SensorStatusCard from "@/components/SensorStatusCard";
+import AlertConfigPanel from "@/components/AlertConfigPanel";
+import AlertToasts from "@/components/AlertToasts";
+import CameraFeed from "@/components/CameraFeed";
 
 // Sensor Definitions
 const SENSORS = [
@@ -22,13 +27,17 @@ const SENSOR_IDS = SENSORS.map(s => s.id);
 export default function Dashboard() {
   const [selectedSensorId, setSelectedSensorId] = useState(SENSORS[0].id);
   const [timeRange, setTimeRange] = useState<"15m" | "1h">("15m");
+  const [showConfig, setShowConfig] = useState(false);
   
   const data = useMultiSensorLive(SENSOR_IDS, timeRange);
+  useAlertSystem(data);
+  
+  const { events } = useAlertsStore();
+  const activeAlertCount = events.filter(e => !e.acknowledged).length;
 
   // Calculate Derived Stats
   const stats = useMemo(() => {
     const temp = data["raspi/sensors/dht/temp"]?.latest?.value ?? 0;
-    const humid = data["raspi/sensors/dht/humid"]?.latest?.value ?? 0;
     const ppe = data["raspi/ppe/total"]?.latest?.value ?? 0;
     
     const onlineCount = SENSOR_IDS.filter(id => {
@@ -36,7 +45,7 @@ export default function Dashboard() {
         return last && (Date.now() - last < 60000);
     }).length;
 
-    return { temp, humid, ppe, onlineCount };
+    return { temp, ppe, onlineCount };
   }, [data]);
 
   const selectedSensor = SENSORS.find(s => s.id === selectedSensorId) || SENSORS[0];
@@ -86,11 +95,11 @@ export default function Dashboard() {
             status={stats.temp > 30 ? "warning" : "normal"}
           />
           <StatCard 
-            title="Humidity" 
-            value={stats.humid.toFixed(1)} 
-            unit="%" 
-            icon="💧" 
-            status="normal"
+            title="Active Alerts" 
+            value={activeAlertCount} 
+            unit="" 
+            icon="⚠️" 
+            status={activeAlertCount > 0 ? "warning" : "normal"}
           />
           <StatCard 
             title="Personnel on Site" 
@@ -107,46 +116,59 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Main Layout: Chart + Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 h-[600px]">
+        {/* Main Layout: Chart + Camera + Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
           
-          {/* Left: Main Chart (Takes 2/3) */}
-          <div className="xl:col-span-2 bg-gray-900/30 border border-gray-800 rounded-2xl p-6 flex flex-col backdrop-blur-sm relative overflow-hidden">
-             {/* Chart Controls */}
-             <div className="flex justify-between items-center mb-6">
-                <div>
-                    <h2 className="text-xl font-semibold text-white">{selectedSensor.name} History</h2>
-                    <p className="text-sm text-gray-500">Real-time data stream visualization</p>
-                </div>
-                <div className="flex bg-gray-800 rounded-lg p-1 gap-1">
-                    {(['15m', '1h'] as const).map((r) => (
-                        <button
-                            key={r}
-                            onClick={() => setTimeRange(r)}
-                            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
-                                timeRange === r 
-                                ? 'bg-gray-700 text-white shadow-sm' 
-                                : 'text-gray-400 hover:text-gray-200'
-                            }`}
+          {/* Left: Main Chart + Camera (Takes 2/3) */}
+          <div className="xl:col-span-2 flex flex-col gap-8">
+            <div className="h-[450px] bg-gray-900/30 border border-gray-800 rounded-2xl p-6 flex flex-col backdrop-blur-sm relative overflow-hidden">
+               {/* Chart Controls */}
+               <div className="flex justify-between items-center mb-6">
+                  <div>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-xl font-semibold text-white">{selectedSensor.name} History</h2>
+                        <button 
+                          onClick={() => setShowConfig(true)}
+                          className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-700 transition-colors"
                         >
-                            {r}
+                          Configure Alerts
                         </button>
-                    ))}
-                </div>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">Real-time data stream visualization</p>
+                  </div>
+                  <div className="flex bg-gray-800 rounded-lg p-1 gap-1">
+                      {(['15m', '1h'] as const).map((r) => (
+                          <button
+                              key={r}
+                              onClick={() => setTimeRange(r)}
+                              className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${
+                                  timeRange === r 
+                                  ? 'bg-gray-700 text-white shadow-sm' 
+                                  : 'text-gray-400 hover:text-gray-200'
+                              }`}
+                          >
+                              {r}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
+              <div className="flex-1 w-full min-h-0">
+                  <LiveChart 
+                      data={selectedSeries} 
+                      color={selectedSensor.id.includes('flame') ? '#f43f5e' : '#10b981'}
+                      unit={selectedSensor.unit}
+                      title={selectedSensor.name}
+                  />
+              </div>
             </div>
 
-            <div className="flex-1 w-full">
-                <LiveChart 
-                    data={selectedSeries} 
-                    color={selectedSensor.id.includes('flame') ? '#f43f5e' : '#10b981'}
-                    unit={selectedSensor.unit}
-                    title={selectedSensor.name}
-                />
-            </div>
+            {/* Camera Section */}
+            <CameraFeed />
           </div>
 
           {/* Right: Sensor Grid (Takes 1/3) */}
-          <div className="flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="flex flex-col gap-4 h-[calc(100vh-120px)] overflow-y-auto pr-2 custom-scrollbar sticky top-4">
             <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Sensor Feed</h3>
             
             {SENSORS.map(sensor => {
@@ -172,6 +194,19 @@ export default function Dashboard() {
 
         </div>
       </div>
+      
+      {/* Modals & Overlays */}
+      {showConfig && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <AlertConfigPanel 
+            sensorId={selectedSensorId} 
+            sensorName={selectedSensor.name} 
+            onClose={() => setShowConfig(false)} 
+          />
+        </div>
+      )}
+
+      <AlertToasts />
     </div>
   );
 }
