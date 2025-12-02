@@ -20,7 +20,9 @@ const SENSORS = [
   { id: "raspi/node/flame", name: "Flame Detect", icon: "🔥", unit: "val", group: "safety" },
   { id: "raspi/node/smoke", name: "Smoke Detect", icon: "💨", unit: "ppm", group: "safety" },
   { id: "raspi/sensors/gyro", name: "Vibration", icon: "📳", unit: "G", group: "safety" },
-  { id: "raspi/ppe/total", name: "Personnel", icon: "👷", unit: "ppl", group: "safety" },
+  { id: "raspi/ppe/total", name: "Total Personnel", icon: "👷", unit: "ppl", group: "safety" },
+  { id: "raspi/ppe/hat", name: "With PPE (Hat)", icon: "⛑️", unit: "ppl", group: "safety" },
+  { id: "raspi/ppe/person", name: "No PPE (Person)", icon: "🧍", unit: "ppl", group: "safety" },
 ];
 
 const SENSOR_IDS = SENSORS.map(s => s.id);
@@ -39,14 +41,16 @@ export default function Dashboard() {
   // Calculate Derived Stats
   const stats = useMemo(() => {
     const temp = data["raspi/sensors/dht/temp"]?.latest?.value ?? 0;
-    const ppe = data["raspi/ppe/total"]?.latest?.value ?? 0;
+    const ppeTotal = data["raspi/ppe/total"]?.latest?.value ?? 0;
+    const ppeHat = data["raspi/ppe/hat"]?.latest?.value ?? 0;
+    const ppePerson = data["raspi/ppe/person"]?.latest?.value ?? 0;
     
     const onlineCount = SENSOR_IDS.filter(id => {
         const last = data[id]?.lastUpdated;
         return last && (Date.now() - last < 60000);
     }).length;
 
-    return { temp, ppe, onlineCount };
+    return { temp, ppeTotal, ppeHat, ppePerson, onlineCount };
   }, [data]);
 
   const selectedSensor = SENSORS.find(s => s.id === selectedSensorId) || SENSORS[0];
@@ -108,11 +112,11 @@ export default function Dashboard() {
             status={activeAlertCount > 0 ? "warning" : "normal"}
           />
           <StatCard 
-            title="Personnel on Site" 
-            value={stats.ppe} 
-            unit="ppl" 
-            icon="👷" 
-            status={stats.ppe > 0 ? "normal" : "warning"} // Warning if 0 maybe? Or normal.
+            title="Site Safety" 
+            value={`${stats.ppeHat}/${stats.ppeTotal}`} 
+            unit="Safe/Total" 
+            icon="⛑️" 
+            status={stats.ppePerson > 0 ? "warning" : "normal"} 
           />
           <StatCard 
             title="Active Sensors" 

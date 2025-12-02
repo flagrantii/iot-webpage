@@ -38,12 +38,6 @@ export const ALERT_DEFAULTS: Record<string, Partial<AlertRule>> = {
     windowSec: 2,
     enabled: false,
   },
-  "raspi/ppe/total": {
-    threshold: 0,
-    op: "lt",
-    windowSec: 10,
-    enabled: false,
-  },
 };
 
 // Fallback if sensor ID not found in defaults

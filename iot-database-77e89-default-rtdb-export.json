@@ -8,53 +8,53 @@
           "value": 0
         },
         "src": "esp32",
-        "ts": 1764491064.0901687,
+        "ts": 1764580196.3449602,
         "value": 0
       },
       "smoke": {
-        "detect": true,
+        "detect": false,
         "raw": {
-          "detect": true,
-          "value": 2169
+          "detect": false,
+          "value": 201
         },
         "src": "esp32",
-        "ts": 1764491063.5462549,
-        "value": 2169
+        "ts": 1764580196.301565,
+        "value": 201
       },
       "sound": {
-        "detect": true,
+        "detect": false,
         "raw": {
-          "detect": true,
-          "value": 1
+          "detect": false,
+          "value": 0
         },
         "src": "esp32",
-        "ts": 1764491064.1320121,
-        "value": 1
+        "ts": 1764580196.384618,
+        "value": 0
       }
     },
     "ppe": {
       "classes": {
         "hat": 1,
-        "person": 2
+        "person": 7
       },
-      "total": 3,
-      "ts": 1764492676.4394221
+      "total": 8,
+      "ts": 1764659640.8469062
     },
     "sensors": {
       "dht": {
-        "humidity_pct": 52,
+        "humidity_pct": 68,
         "src": "raspi:dht",
-        "temperature_c": 28.3,
-        "ts": 1764492677.1129775
+        "temperature_c": 23.3,
+        "ts": 1764659640.5411289
       },
       "gyro": {
-        "ax": -0.7595,
-        "ay": 0.3647,
-        "az": 0.6301,
+        "ax": -0.6951,
+        "ay": 0.51,
+        "az": 0.5837,
         "is_shaking": false,
-        "magnitude": 1.0521,
+        "magnitude": 1.0411,
         "src": "raspi:gyro",
-        "ts": 1764492676.7655885
+        "ts": 1764659641.2130418
       }
     }
   }
