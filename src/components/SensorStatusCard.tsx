@@ -38,12 +38,12 @@ export default function SensorStatusCard({
   };
 
   const selectedStyle = isSelected 
-    ? "ring-2 ring-emerald-500 border-transparent" 
+    ? "border-green-600" 
     : "hover:border-gray-600";
     
   // Override border/ring if alert is active to draw attention
   const alertStyle = isAlertActive 
-    ? "ring-2 ring-red-500 animate-pulse" 
+    ? "border-red-500 animate-pulse" 
     : "";
 
 
