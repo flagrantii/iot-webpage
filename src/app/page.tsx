@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useMultiSensorLive } from "@/hooks/useMultiSensorLive";
 import { useAlertSystem } from "@/hooks/useAlertSystem";
 import { useAlertsStore } from "@/store/alerts.store";
+import { ALERT_DEFAULTS, GENERIC_DEFAULT } from "@/config/alert-defaults";
 import StatCard from "@/components/StatCard";
 import LiveChart from "@/components/LiveChart";
 import SensorStatusCard from "@/components/SensorStatusCard";
@@ -50,6 +51,11 @@ export default function Dashboard() {
 
   const selectedSensor = SENSORS.find(s => s.id === selectedSensorId) || SENSORS[0];
   const selectedSeries = data[selectedSensorId]?.series || [];
+  
+  const { rules } = useAlertsStore();
+  const currentRule = rules[selectedSensorId] ?? 
+    (ALERT_DEFAULTS[selectedSensorId] ? { ...ALERT_DEFAULTS[selectedSensorId], sensorId: selectedSensorId } : GENERIC_DEFAULT);
+  const threshold = currentRule.enabled ? currentRule.threshold : null;
 
 
   // Status Logic Helper
@@ -159,6 +165,7 @@ export default function Dashboard() {
                       color={selectedSensor.id.includes('flame') ? '#f43f5e' : '#10b981'}
                       unit={selectedSensor.unit}
                       title={selectedSensor.name}
+                      threshold={threshold}
                   />
               </div>
             </div>

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useAlertsStore, evaluateAlert } from "@/store/alerts.store";
 import { SensorPoint } from "@/types/sensor";
+import { ALERT_DEFAULTS, GENERIC_DEFAULT } from "@/config/alert-defaults";
+import { AlertRule } from "@/types/alert";
 
 type SensorDataMap = Record<string, { series: SensorPoint[] }>;
 
@@ -13,11 +15,28 @@ export function useAlertSystem(data: SensorDataMap) {
   useEffect(() => {
     const now = Date.now();
     
-    Object.values(rules).forEach((rule) => {
-      if (!rule.enabled) return;
-
-      const sensorData = data[rule.sensorId];
+    // Iterate over all sensors that we have data for
+    Object.keys(data).forEach((sensorId) => {
+      const sensorData = data[sensorId];
       if (!sensorData || !sensorData.series) return;
+
+      // Determine the effective rule: custom rule > default rule > generic default
+      let rule: AlertRule;
+
+      if (rules[sensorId]) {
+        rule = rules[sensorId];
+      } else {
+        const defaults = ALERT_DEFAULTS[sensorId] || GENERIC_DEFAULT;
+        rule = {
+          sensorId,
+          threshold: defaults.threshold ?? GENERIC_DEFAULT.threshold,
+          op: defaults.op ?? GENERIC_DEFAULT.op,
+          windowSec: defaults.windowSec ?? GENERIC_DEFAULT.windowSec,
+          enabled: defaults.enabled ?? GENERIC_DEFAULT.enabled,
+        };
+      }
+
+      if (!rule.enabled) return;
 
       const severity = evaluateAlert(sensorData.series, rule);
       const lastSeverity = alertStateRef.current[rule.sensorId];
@@ -54,4 +73,3 @@ export function useAlertSystem(data: SensorDataMap) {
     });
   }, [data, rules, addEvent]);
 }
-

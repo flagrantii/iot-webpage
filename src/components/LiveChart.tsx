@@ -1,6 +1,6 @@
 "use client";
 
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, ReferenceLine } from "recharts";
 import type { SensorPoint } from "@/types/sensor";
 
 type Props = {
@@ -10,9 +10,10 @@ type Props = {
   min?: number;
   max?: number;
   title?: string;
+  threshold?: number | null;
 };
 
-export default function LiveChart({ data, color = "#10b981", unit, min, max, title }: Props) {
+export default function LiveChart({ data, color = "#10b981", unit, min, max, title, threshold }: Props) {
   if (!data || data.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-2">
@@ -80,6 +81,19 @@ export default function LiveChart({ data, color = "#10b981", unit, min, max, tit
                 strokeWidth={2}
                 isAnimationActive={false} // Disable animation for smoother realtime updates
             />
+            {threshold !== null && threshold !== undefined && (
+                <ReferenceLine 
+                    y={threshold} 
+                    stroke="#ef4444" 
+                    strokeDasharray="3 3" 
+                    label={{ 
+                        value: `Alert: ${threshold}`, 
+                        fill: "#ef4444", 
+                        fontSize: 10, 
+                        position: "insideTopRight" 
+                    }} 
+                />
+            )}
             </AreaChart>
         </ResponsiveContainer>
       </div>
