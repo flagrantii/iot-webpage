@@ -7,6 +7,7 @@ import { useAlertsStore } from "@/store/alerts.store";
 import { AlertOp, AlertRule } from "@/types/alert";
 import { useEffect } from "react";
 import { ALERT_DEFAULTS, GENERIC_DEFAULT } from "@/config/alert-defaults";
+import { X, Bell, BellOff, Trash2, Save, AlertTriangle } from "lucide-react";
 
 const schema = z.object({
   threshold: z.number().min(-1000).max(10000),
@@ -32,7 +33,6 @@ export default function AlertConfigPanel({ sensorId, sensorName, onClose }: Aler
     handleSubmit,
     reset,
     watch,
-    setValue,
     formState: { errors },
   } = useForm<FormSchema>({
     resolver: zodResolver(schema),
@@ -43,6 +43,8 @@ export default function AlertConfigPanel({ sensorId, sensorName, onClose }: Aler
       enabled: existingRule?.enabled ?? false,
     },
   });
+
+  const isEnabled = watch("enabled");
 
   useEffect(() => {
     if (existingRule) {
@@ -80,89 +82,144 @@ export default function AlertConfigPanel({ sensorId, sensorName, onClose }: Aler
     onClose();
   };
 
-  const opOptions: { value: AlertOp; label: string }[] = [
-    { value: "gt", label: "> Greater Than" },
-    { value: "gte", label: ">= Greater/Equal" },
-    { value: "lt", label: "< Less Than" },
-    { value: "lte", label: "<= Less/Equal" },
+  const opOptions: { value: AlertOp; label: string; symbol: string }[] = [
+    { value: "gt", label: "Greater Than", symbol: ">" },
+    { value: "gte", label: "Greater or Equal", symbol: "≥" },
+    { value: "lt", label: "Less Than", symbol: "<" },
+    { value: "lte", label: "Less or Equal", symbol: "≤" },
   ];
 
   return (
-    <div className="bg-gray-900/90 border border-gray-800 rounded-lg p-6 max-w-md w-full backdrop-blur-md shadow-xl">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-white">Alert Config: {sensorName}</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-white">
-          ✕
+    <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 max-w-lg w-full backdrop-blur-xl shadow-2xl">
+      {/* Header */}
+      <div className="flex justify-between items-start mb-6 pb-4 border-b border-gray-800">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <AlertTriangle className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white">Alert Configuration</h3>
+            <p className="text-sm text-gray-400 mt-0.5">{sensorName}</p>
+          </div>
+        </div>
+        <button 
+          onClick={onClose} 
+          className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
+          aria-label="Close alert configuration"
+        >
+          <X className="w-5 h-5" />
         </button>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         
-        {/* Enable Toggle */}
-        <div className="flex items-center justify-between bg-gray-800/50 p-3 rounded-md">
-          <label className="text-sm font-medium text-gray-300">Enable Alert</label>
-          <input
-            type="checkbox"
-            {...register("enabled")}
-            className="w-5 h-5 rounded border-gray-600 bg-gray-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-900"
-          />
+        {/* Enable Toggle - Enhanced */}
+        <div className="relative overflow-hidden rounded-xl border border-gray-800 bg-gradient-to-br from-gray-800/50 to-gray-900/50 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {isEnabled ? (
+                <Bell className="w-5 h-5 text-emerald-400" />
+              ) : (
+                <BellOff className="w-5 h-5 text-gray-500" />
+              )}
+              <div>
+                <label className="text-sm font-semibold text-white cursor-pointer">
+                  Alert Monitoring
+                </label>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {isEnabled ? "Active - System will notify on threshold breach" : "Disabled - No alerts will be sent"}
+                </p>
+              </div>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                {...register("enabled")}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+            </label>
+          </div>
         </div>
 
-        {/* Threshold & Operator */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Operator</label>
-            <select
-              {...register("op")}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
-            >
-              {opOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+        {/* Threshold & Operator - Enhanced */}
+        <div className="space-y-3">
+          <label className="block text-sm font-semibold text-gray-300">Trigger Condition</label>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-1">
+              <label className="block text-xs font-medium text-gray-500 mb-2">Operator</label>
+              <select
+                {...register("op")}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all"
+              >
+                {opOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.symbol} {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-500 mb-2">Threshold Value</label>
+              <input
+                type="number"
+                step="any"
+                {...register("threshold", { valueAsNumber: true })}
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all font-mono"
+                placeholder="Enter value..."
+              />
+              {errors.threshold && (
+                <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  {errors.threshold.message}
+                </p>
+              )}
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Threshold</label>
+        </div>
+
+        {/* Window - Enhanced */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-300 mb-2">
+            Time Window (seconds)
+          </label>
+          <div className="relative">
             <input
               type="number"
-              step="any"
-              {...register("threshold", { valueAsNumber: true })}
-              className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+              {...register("windowSec", { valueAsNumber: true })}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all font-mono"
+              placeholder="Duration in seconds..."
             />
-            {errors.threshold && <p className="text-red-400 text-xs mt-1">{errors.threshold.message}</p>}
           </div>
+          <p className="text-xs text-gray-500 mt-2 flex items-start gap-1.5">
+            <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+            <span>Alert triggers only if condition persists for this duration</span>
+          </p>
+          {errors.windowSec && (
+            <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              {errors.windowSec.message}
+            </p>
+          )}
         </div>
 
-        {/* Window */}
-        <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1">
-            Rolling Window (Seconds)
-            <span className="ml-2 text-gray-600 text-[10px]">Min duration to trigger</span>
-          </label>
-          <input
-            type="number"
-            {...register("windowSec", { valueAsNumber: true })}
-            className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-sm text-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
-          />
-           {errors.windowSec && <p className="text-red-400 text-xs mt-1">{errors.windowSec.message}</p>}
-        </div>
-
-        <div className="flex gap-3 mt-6 pt-2 border-t border-gray-800">
+        {/* Action Buttons - Enhanced */}
+        <div className="flex gap-3 pt-4 border-t border-gray-800">
           <button
             type="submit"
-            className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-md text-sm font-medium transition-colors"
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
           >
-            Save Rule
+            <Save className="w-4 h-4" />
+            Save Configuration
           </button>
           {existingRule && (
             <button
               type="button"
               onClick={handleRemove}
-              className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-md text-sm font-medium transition-colors"
+              className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 active:bg-red-500/30 text-red-400 border border-red-500/30 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+              title="Remove alert rule"
             >
-              Delete
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -170,4 +227,3 @@ export default function AlertConfigPanel({ sensorId, sensorName, onClose }: Aler
     </div>
   );
 }
-
