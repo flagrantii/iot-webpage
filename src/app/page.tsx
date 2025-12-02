@@ -11,18 +11,31 @@ import SensorStatusCard from "@/components/SensorStatusCard";
 import AlertConfigPanel from "@/components/AlertConfigPanel";
 import AlertToasts from "@/components/AlertToasts";
 import CameraFeed from "@/components/CameraFeed";
+import { 
+  Thermometer, 
+  Droplets, 
+  Volume2, 
+  Flame, 
+  CloudFog, 
+  Activity, 
+  Users, 
+  HardHat, 
+  UserX,
+  AlertTriangle,
+  Radio
+} from "lucide-react";
 
 // Sensor Definitions
 const SENSORS = [
-  { id: "raspi/sensors/dht/temp", name: "Temperature", icon: "🌡️", unit: "°C", group: "env" },
-  { id: "raspi/sensors/dht/humid", name: "Humidity", icon: "💧", unit: "%", group: "env" },
-  { id: "raspi/node/sound", name: "Noise Level", icon: "🔊", unit: "dB", group: "env" },
-  { id: "raspi/node/flame", name: "Flame Detect", icon: "🔥", unit: "val", group: "safety" },
-  { id: "raspi/node/smoke", name: "Smoke Detect", icon: "💨", unit: "ppm", group: "safety" },
-  { id: "raspi/sensors/gyro", name: "Vibration", icon: "📳", unit: "G", group: "safety" },
-  { id: "raspi/ppe/total", name: "Total Personnel", icon: "👷", unit: "ppl", group: "safety" },
-  { id: "raspi/ppe/hat", name: "With PPE (Hat)", icon: "⛑️", unit: "ppl", group: "safety" },
-  { id: "raspi/ppe/person", name: "No PPE (Person)", icon: "🧍", unit: "ppl", group: "safety" },
+  { id: "raspi/sensors/dht/temp", name: "Temperature", icon: Thermometer, unit: "°C", group: "env" },
+  { id: "raspi/sensors/dht/humid", name: "Humidity", icon: Droplets, unit: "%", group: "env" },
+  { id: "raspi/node/sound", name: "Noise Level", icon: Volume2, unit: "dB", group: "env" },
+  { id: "raspi/node/flame", name: "Flame Detect", icon: Flame, unit: "val", group: "safety" },
+  { id: "raspi/node/smoke", name: "Smoke Detect", icon: CloudFog, unit: "ppm", group: "safety" },
+  { id: "raspi/sensors/gyro", name: "Vibration", icon: Activity, unit: "G", group: "safety" },
+  { id: "raspi/ppe/total", name: "Total Personnel", icon: Users, unit: "ppl", group: "safety" },
+  { id: "raspi/ppe/hat", name: "With PPE (Hat)", icon: HardHat, unit: "ppl", group: "safety" },
+  { id: "raspi/ppe/person", name: "No PPE (Person)", icon: UserX, unit: "ppl", group: "safety" },
 ];
 
 const SENSOR_IDS = SENSORS.map(s => s.id);
@@ -30,7 +43,7 @@ const SENSOR_IDS = SENSORS.map(s => s.id);
 export default function Dashboard() {
   const [selectedSensorId, setSelectedSensorId] = useState(SENSORS[0].id);
   const [timeRange, setTimeRange] = useState<"15m" | "1h">("15m");
-  const [showConfig, setShowConfig] = useState(false);
+  const [configSensorId, setConfigSensorId] = useState<string | null>(null);
   
   const data = useMultiSensorLive(SENSOR_IDS, timeRange);
   useAlertSystem(data);
@@ -61,6 +74,7 @@ export default function Dashboard() {
     (ALERT_DEFAULTS[selectedSensorId] ? { ...ALERT_DEFAULTS[selectedSensorId], sensorId: selectedSensorId } : GENERIC_DEFAULT);
   const threshold = currentRule.enabled ? currentRule.threshold : null;
 
+  const configSensor = configSensorId ? (SENSORS.find(s => s.id === configSensorId) || SENSORS[0]) : null;
 
   // Status Logic Helper
   const getStatus = (id: string, value: number): "ok" | "warn" | "critical" => {
@@ -101,27 +115,27 @@ export default function Dashboard() {
             title="Avg Temperature" 
             value={stats.temp.toFixed(1)} 
             unit="°C" 
-            icon="🌡️" 
+            icon={Thermometer} 
             status={stats.temp > 30 ? "warning" : "normal"}
           />
           <StatCard 
             title="Active Alerts" 
             value={activeAlertCount} 
             unit="" 
-            icon="⚠️" 
+            icon={AlertTriangle} 
             status={activeAlertCount > 0 ? "warning" : "normal"}
           />
           <StatCard 
             title="Site Safety" 
             value={`${stats.ppeHat}/${stats.ppeTotal}`} 
             unit="Safe/Total" 
-            icon="⛑️" 
+            icon={HardHat} 
             status={stats.ppePerson > 0 ? "warning" : "normal"} 
           />
           <StatCard 
             title="Active Sensors" 
             value={`${stats.onlineCount}/${SENSOR_IDS.length}`} 
-            icon="📡" 
+            icon={Radio} 
             status={stats.onlineCount === SENSOR_IDS.length ? "normal" : "warning"}
           />
         </div>
@@ -137,12 +151,6 @@ export default function Dashboard() {
                   <div>
                       <div className="flex items-center gap-3">
                         <h2 className="text-xl font-semibold text-white">{selectedSensor.name} History</h2>
-                        <button 
-                          onClick={() => setShowConfig(true)}
-                          className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 px-2 py-1 rounded border border-gray-700 transition-colors"
-                        >
-                          Configure Alerts
-                        </button>
                       </div>
                       <p className="text-sm text-gray-500 mt-1">Real-time data stream visualization</p>
                   </div>
@@ -186,6 +194,14 @@ export default function Dashboard() {
                 const sensorData = data[sensor.id];
                 const val = sensorData?.latest?.value ?? 0;
                 const status = getStatus(sensor.id, val);
+                
+                // Get Active Alert Status
+                const isAlertActive = events.some(e => e.sensorId === sensor.id && !e.acknowledged);
+                
+                // Get Configured Threshold
+                const rule = rules[sensor.id] ?? 
+                    (ALERT_DEFAULTS[sensor.id] ? { ...ALERT_DEFAULTS[sensor.id], sensorId: sensor.id } : GENERIC_DEFAULT);
+                const cardThreshold = rule.enabled ? rule.threshold : null;
 
                 return (
                     <SensorStatusCard 
@@ -198,6 +214,9 @@ export default function Dashboard() {
                         lastUpdated={sensorData?.lastUpdated || null}
                         isSelected={selectedSensorId === sensor.id}
                         onClick={() => setSelectedSensorId(sensor.id)}
+                        onConfigClick={() => setConfigSensorId(sensor.id)}
+                        isAlertActive={isAlertActive}
+                        threshold={cardThreshold}
                     />
                 );
             })}
@@ -207,12 +226,12 @@ export default function Dashboard() {
       </div>
       
       {/* Modals & Overlays */}
-      {showConfig && (
+      {configSensor && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <AlertConfigPanel 
-            sensorId={selectedSensorId} 
-            sensorName={selectedSensor.name} 
-            onClose={() => setShowConfig(false)} 
+            sensorId={configSensor.id} 
+            sensorName={configSensor.name} 
+            onClose={() => setConfigSensorId(null)} 
           />
         </div>
       )}
@@ -221,4 +240,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

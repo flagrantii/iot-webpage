@@ -1,16 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { LucideIcon } from "lucide-react";
 
 type Props = {
   title: string;
   value: string | number;
   unit?: string;
-  icon: string;
+  icon: LucideIcon;
   status?: "normal" | "warning" | "critical";
 };
 
-export default function StatCard({ title, value, unit, icon, status = "normal" }: Props) {
+export default function StatCard({ title, value, unit, icon: Icon, status = "normal" }: Props) {
   const statusColors = {
     normal: "border-emerald-500/30 bg-emerald-500/5 text-emerald-400",
     warning: "border-amber-500/30 bg-amber-500/5 text-amber-400",
@@ -35,8 +36,8 @@ export default function StatCard({ title, value, unit, icon, status = "normal" }
             {unit && <span className="text-sm opacity-60">{unit}</span>}
           </div>
         </div>
-        <div className={`p-3 rounded-lg bg-white/5 text-2xl`}>
-          {icon}
+        <div className={`p-3 rounded-lg bg-white/5`}>
+          <Icon className="w-6 h-6" />
         </div>
       </div>
       
@@ -45,4 +46,3 @@ export default function StatCard({ title, value, unit, icon, status = "normal" }
     </motion.div>
   );
 }
-
